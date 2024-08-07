@@ -89,17 +89,5 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PATTERN='[0-9]{8}-[a-z0-9]{7}'
-          OLD_RELEASES=$(gh release list | egrep $PATTERN | awk '{ print $1 }')
-          for RELEASE in $OLD_RELEASES; do
-            gh release delete $RELEASE
-          done
-          for TAG in $(git tag); do
-            echo $TAG | egrep $PATTERN
-            if [ "$?" == "0" ]; then
-              git push --delete origin $TAG
-            fi
-          done
-          TAG=$(date +%Y%m%d)-$(git describe --always)
-          gh release create -p -n "Flightctl CLI pre-release" $TAG release/*
+          gh release create -p -n "Flightctl CLI pre-release" latest release/*
 
