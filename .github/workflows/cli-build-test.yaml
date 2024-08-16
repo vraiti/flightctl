@@ -1,0 +1,67 @@
+name: "Verify CLI builds"
+on:
+  pull_request:
+
+jobs:
+  build:
+    strategy: 
+      matrix:
+        os: [linux, darwin]
+        arch: [amd64, arm64]
+    env:
+      NAME: flightctl-${{ matrix.os }}-${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Build"
+        env:
+          GOARCH: ${{ matrix.arch }}
+          GOOS: ${{ matrix.os }}
+        run: |       
+          make build
+          SHA=$(sha256sum bin/flightctl | awk '{ print $1 }')
+          echo $SHA > ${{ env.NAME }}-sha256.txt
+          tar cvf ${{ env.NAME }}.tar.gz  bin/flightctl
+          mv bin/flightctl ${{ env.NAME }} 
+      - name: "Save tar binary"
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}.tar.gz
+          path: ${{ env.NAME }}.tar.gz
+      
+      - name: "Save binary"
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}
+          path: ${{ env.NAME }}
+    
+      - name: "Save checksum"
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}-sha256.txt
+          path: ${{ env.NAME }}-sha256.txt
+
+  verify:
+    strategy:
+      matrix:
+        env: 
+          - runner: ubuntu-latest
+            build: linux-amd64
+          - runner: macos-latest
+            build: darwin-arm64
+    runs-on: ${{ matrix.env.runner }}
+    needs: [build]
+    
+    steps: 
+      - name: "Load binary"
+        uses: actions/download-artifact@v4
+        with:
+          name: flightctl-${{ matrix.env.build }}
+
+      - name: "Verify"
+        run: |
+          chmod +x flightctl-${{ matrix.env.build }}
+          ./flightctl-${{ matrix.env.build }} version
+          exit $?
